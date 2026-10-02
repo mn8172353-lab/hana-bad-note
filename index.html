@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2fbf8f">
+<meta name="application-name" content="はなのバド上達ノート">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="バド上達ノート">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>はなのバド上達ノート</title>
+<style>
+:root{--bg:#ffffff;--card:#fff;--ink:#1f3a33;--sub:#6b8780;--main:#2fbf8f;--mainD:#1f9a72;--soft:#e8f9f2;--line:#c8ecdd;--warn:#e5604d;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px}
+main{max-width:560px;margin:0 auto;padding:12px 14px 110px}
+header{background:linear-gradient(135deg,#2fbf8f,#5fd9b0);color:#fff;border-radius:22px;padding:16px 18px;margin-bottom:14px}
+header h1{margin:0;font-size:21px}header p{margin:4px 0 0;font-size:13px;opacity:.95}
+h2{font-size:19px;margin:6px 2px 10px}
+h3{font-size:15px;margin:16px 2px 8px}
+.card{background:var(--card);border:1.5px solid var(--line);border-radius:20px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px rgba(47,191,143,.08)}
+.chips{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.chip{border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:16px;min-height:52px;font-size:16px;font-weight:600;padding:8px}
+.chip.on{background:var(--soft);border-color:var(--main);color:var(--mainD)}
+.chip.on::before{content:"✓ "}
+textarea,input[type=text],input[type=date]{width:100%;border:2px solid var(--line);border-radius:14px;padding:12px;font-size:16px;background:var(--card);color:var(--ink);font-family:inherit}
+textarea{min-height:76px;resize:vertical}
+.btn{width:100%;min-height:56px;border:0;border-radius:18px;background:var(--main);color:#fff;font-size:18px;font-weight:700;margin-top:10px}
+.btn:active{background:var(--mainD)}
+.btn.sm{width:auto;min-height:48px;font-size:15px;padding:0 14px;margin:0}
+.btn.ghost{background:var(--soft);color:var(--mainD)}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row .btn{flex:1;min-width:70px}
+.rec{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:8px;color:var(--ink);font-size:15px}
+.rec b{color:var(--mainD)}.rec small{display:block;color:var(--sub);margin-top:4px;font-size:13px}
+.det{white-space:pre-wrap;margin-top:8px;font-size:14px;line-height:1.6;border-top:1px dashed var(--line);padding-top:8px}
+.bar{height:16px;background:var(--soft);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#2fbf8f,#7be3bf);border-radius:99px;transition:width .3s}
+.wk{display:flex;align-items:center;gap:8px;width:100%;border:2px solid transparent;background:transparent;color:var(--ink);padding:8px;border-radius:14px;font-size:14px}
+.wk.sel{border-color:var(--main);background:var(--soft)}.wk .bar{flex:1}.wk span:first-child{width:52px;text-align:left}.wk span:last-child{width:42px;text-align:right}
+.big{text-align:center;background:linear-gradient(135deg,#2fbf8f,#5fd9b0);color:#fff;border-radius:22px;padding:20px 10px;margin-bottom:12px}
+.big div{font-size:46px;font-weight:800;line-height:1.1}.big small{font-size:15px}
+.avg{font-size:30px;font-weight:800;color:var(--mainD)}
+.sub{color:var(--sub);font-size:13px}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
+nav button{flex:1;border:0;background:none;color:var(--sub);min-height:58px;font-size:12px;border-radius:16px;font-weight:600}
+nav button span{display:block;font-size:24px}
+nav button.on{color:var(--mainD);background:var(--soft)}
+#toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:#1f3a33;color:#fff;padding:14px 22px;border-radius:99px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .3s;z-index:9}
+#toast.show{opacity:1}
+.hide{display:none}
+.pct{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.pct .chip{min-height:48px;padding:4px;font-size:15px}.pct .chip.on::before{content:""}
+</style>
+</head>
+<body>
+<main>
+<header><h1>🏸 はなのバド上達ノート</h1><p>練習を記録して、次の一歩へ 🏸</p></header>
+<div id="view"></div>
+</main>
+<div id="toast"></div>
+<nav id="nav"></nav>
+<script>
+var KEY="hana_bad_v1";
+var MENUS=["基礎打ち","サーブ","フットワーク","ノック","クリア","スマッシュ","ロブ","ゲーム練習","その他"];
+var FOCUS=["サーブミスを減らす","サーブを奥まで打つ","1歩目を速くする","フットワーク","打ったあとに戻る","体全体を使って打つ","相手の空いている場所を見る","その他"];
+var GOAL_EX=["サーブを安定して奥まで入れる","1歩目を速くする","打ったあとに戻る","体全体を使って打つ"];
+// データ構造: practices[], goals{"YYYY-MM":{title,weeks[5]}}, tournament{name,date,goal,focus[],focusOther}
+var db=load();var tab="practice";var editG=false;var draft={menus:[],other:"",good:"",bad:"",coach:"",next:""};var openId=null;var selWeek=null;
+function load(){try{var s=localStorage.getItem(KEY);if(s){var d=JSON.parse(s);if(d&&d.practices)return d}}catch(e){}
+return{practices:[],goals:{},tournament:{name:"",date:"",goal:"",focus:[],focusOther:""}}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}}
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function p2(n){return(n<10?"0":"")+n}
+function ymd(d){return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate())}
+function toast(m){var t=$("toast");t.textContent=m;t.className="show";setTimeout(function(){t.className=""},1800)}
+var W=["日","月","火","水","木","金","土"];
+function nav(){var t=[["practice","🏸","練習"],["goal","🎯","目標"],["match","🏆","大会"]];
+$("nav").innerHTML=t.map(function(x){return'<button class="'+(tab==x[0]?"on":"")+'" onclick="go(\''+x[0]+'\')"><span>'+x[1]+'</span>'+x[2]+'</button>'}).join("")}
+function go(t){tab=t;render();window.scrollTo(0,0)}
+function render(){nav();$("view").innerHTML=tab=="practice"?vPractice():tab=="goal"?vGoal():vMatch()}
+
+/* 練習 */
+function vPractice(){var n=new Date();
+var h='<h2>今日の練習 <span class="sub">'+(n.getMonth()+1)+'月'+n.getDate()+'日（'+W[n.getDay()]+'）</span></h2><div class="card"><h3 style="margin-top:0">🏸 練習メニュー</h3><div class="chips">';
+MENUS.forEach(function(m,i){h+='<button class="chip'+(draft.menus.indexOf(m)>=0?" on":"")+'" onclick="tm('+i+')">'+m+'</button>'});
+h+='</div>';
+if(draft.menus.indexOf("その他")>=0)h+='<h3>その他の練習内容</h3><input type="text" id="d_other" value="'+esc(draft.other)+'" oninput="draft.other=this.value" placeholder="どんな練習？">';
+h+='<h3>✅ できたこと</h3><textarea id="d_good" oninput="draft.good=this.value" placeholder="今日できたことを書いてみよう">'+esc(draft.good)+'</textarea><div class="sub">例：サーブが奥まで飛んだ／構えて待つことができた</div>'
++'<h3>🔸 できなかったこと</h3><textarea oninput="draft.bad=this.value" placeholder="難しかったこと・できなかったことを書いてみよう">'+esc(draft.bad)+'</textarea><div class="sub">例：打ったあとに戻れなかった</div>'
++'<h3>🗣 コーチから言われたこと</h3><textarea oninput="draft.coach=this.value" placeholder="コーチに言われたことを書いてみよう">'+esc(draft.coach)+'</textarea><div class="sub">例：もっと早く構える／体全体を使って打つ</div>'
++'<h3>🌟 次の練習でがんばること</h3><textarea oninput="draft.next=this.value" placeholder="次の練習でがんばることを書いてみよう">'+esc(draft.next)+'</textarea><div class="sub">例：打ったあとにすぐ戻る／サーブを奥まで打つ</div>'
++'<button class="btn" onclick="savePractice()">今日の練習を保存</button></div>';
+h+='<h2>📖 過去の練習記録</h2>';
+var list=db.practices.slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:b.id-a.id});
+if(!list.length)h+='<div class="card sub">まだ記録がありません。最初の練習を記録しましょう 🏸</div>';
+list.forEach(function(r){var d=r.date.split("-");var open=openId===r.id;
+h+='<button class="rec" onclick="op('+r.id+')"><b>'+(+d[1])+'/'+(+d[2])+'</b>　'+esc(menuText(r))+(r.good?'<small>✅ できたこと：'+esc(r.good)+'</small>':'')+(r.bad?'<small>🔸 できなかったこと：'+esc(r.bad)+'</small>':'');
+if(open)h+='<div class="det">'+'✅ できたこと\n'+esc(r.good||"（なし）")+'\n\n🔸 できなかったこと\n'+esc(r.bad||"（なし）")+'\n\n🗣 コーチから\n'+esc(r.coach||"（なし）")+'\n\n🌟 次の練習でがんばること\n'+esc(r.next||"（なし）")+'</div><div class="row" style="margin-top:8px"><span class="btn sm ghost" style="display:inline-flex;align-items:center;justify-content:center;color:var(--warn)" onclick="event.stopPropagation();delP('+r.id+')">この記録を削除</span></div>';
+h+='</button>'});
+return h}
+function menuText(r){return r.menus.map(function(m){return m=="その他"&&r.other?"その他("+r.other+")":m}).join("・")||"（メニューなし）"}
+function tm(i){var m=MENUS[i],k=draft.menus.indexOf(m);if(k>=0)draft.menus.splice(k,1);else draft.menus.push(m);render()}
+function op(id){openId=openId===id?null:id;render()}
+function delP(id){if(confirm("この記録を削除しますか？")){db.practices=db.practices.filter(function(r){return r.id!==id});save();openId=null;render()}}
+function savePractice(){if(!draft.menus.length&&!draft.good&&!draft.bad&&!draft.coach&&!draft.next){toast("メニューか内容を入れてね");return}
+db.practices.push({id:Date.now(),date:ymd(new Date()),menus:draft.menus.slice(),other:draft.menus.indexOf("その他")>=0?draft.other:"",good:draft.good.trim(),bad:draft.bad.trim(),coach:draft.coach.trim(),next:draft.next.trim()});
+save();draft={menus:[],other:"",good:"",bad:"",coach:"",next:""};toast("練習を記録しました 🏸");render();window.scrollTo(0,0)}
+
+/* 目標 */
+function mkey(){var n=new Date();return n.getFullYear()+"-"+p2(n.getMonth()+1)}
+function vGoal(){var n=new Date(),k=mkey(),g=db.goals[k];if(selWeek===null)selWeek=Math.min(5,Math.ceil(n.getDate()/7))-1;
+var h='<h2>'+(n.getMonth()+1)+'月の目標 🎯</h2>';
+if(g&&!editG){h+='<div class="card"><div class="sub">🎯 今月の目標</div><div style="font-size:20px;font-weight:800;margin:6px 0 12px">'+esc(g.title)+'</div><button class="btn sm ghost" onclick="editG=true;render()">✏️ 変更する</button></div>'}
+else{h+='<div class="card"><h3 style="margin-top:0">🎯 今月の目標を決めよう</h3><input type="text" id="gt" value="'+esc(g?g.title:"")+'" placeholder="目標を書くか、下から選ぼう"><div class="row" style="margin-top:8px">';
+GOAL_EX.forEach(function(x,i){h+='<button class="chip" style="flex:1 1 100%;min-height:44px;font-size:14px" onclick="pickG('+i+')">'+x+'</button>'});
+h+='</div><button class="btn" onclick="saveG()">目標を保存</button>'+(g?'<button class="btn ghost" onclick="editG=false;render()">やめる</button>':'')+'</div>'}
+if(g){var avg=Math.round(g.weeks.reduce(function(a,b){return a+b},0)/5);
+h+='<div class="card"><div class="sub">📈 1ヶ月の平均</div><div class="avg">'+avg+'%</div><div class="bar" style="margin:6px 0 10px"><i style="width:'+avg+'%"></i></div>';
+for(var i=0;i<5;i++)h+='<button class="wk'+(i==selWeek?" sel":"")+'" onclick="sw('+i+')"><span>第'+(i+1)+'週</span><div class="bar"><i style="width:'+g.weeks[i]+'%"></i></div><span>'+g.weeks[i]+'%</span></button>';
+h+='<h3>第'+(selWeek+1)+'週は何％できた？</h3><div class="pct">';
+for(var v=0;v<=100;v+=10)h+='<button class="chip'+(g.weeks[selWeek]===v?" on":"")+'" onclick="setP('+v+')">'+v+'%'+(v==100?"🎉":"")+'</button>';
+h+='</div></div>'}
+var ps=db.practices.filter(function(r){return r.date.slice(0,7)==k}),cnt={};
+ps.forEach(function(r){r.menus.forEach(function(m){cnt[m]=(cnt[m]||0)+1})});
+var top=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a]}).slice(0,3).map(function(m){return m+"("+cnt[m]+"回)"}).join("、");
+h+='<div class="card"><h3 style="margin-top:0">📝 今月のふりかえり</h3>練習した回数：<b>'+ps.length+'回</b><br>よく練習したメニュー：'+(top||"まだありません")+'<div class="sub" style="margin-top:6px">✅ できたこと '+ps.filter(function(r){return r.good}).length+'件 ／ 🔸 できなかったこと '+ps.filter(function(r){return r.bad}).length+'件</div></div>';
+return h}
+function setP(v){var g=db.goals[mkey()];if(!g)return;g.weeks[selWeek]=v;save();render()}
+function pickG(i){$("gt").value=GOAL_EX[i]}
+function saveG(){var t=$("gt").value.trim();if(!t){toast("目標を入れてね");return}var k=mkey();
+db.goals[k]=db.goals[k]||{title:"",weeks:[0,0,0,0,0]};db.goals[k].title=t;editG=false;save();toast("目標を保存しました 🎯");render()}
+function sw(i){selWeek=i;render()}
+
+/* 大会 */
+function daysLeft(s){if(!s)return null;var a=s.split("-"),t=new Date(+a[0],+a[1]-1,+a[2]),n=new Date();n=new Date(n.getFullYear(),n.getMonth(),n.getDate());return Math.round((t-n)/86400000)}
+function vMatch(){var t=db.tournament,d=daysLeft(t.date);
+var h='<h2>次の大会 🏆</h2><div class="big">'+(d===null?'<small>大会日を設定しよう</small>':d>0?'<small>'+esc(t.name||"大会")+'まで</small><div>あと '+d+' 日</div>':d===0?'<div>今日が大会！ 🏸</div>':'<small>大会は終了しました</small><div>'+(-d)+' 日前</div>')+'</div>';
+h+='<div class="card"><h3 style="margin-top:0">🏆 大会名</h3><input type="text" id="tn" value="'+esc(t.name)+'" placeholder="大会名"><h3>📅 大会日</h3><input type="date" id="td" value="'+esc(t.date)+'"><h3>🚩 大会の目標</h3><input type="text" id="tg" value="'+esc(t.goal)+'" placeholder="例：まず1勝する"><h3>🔥 大会までの重点課題</h3><div class="chips">';
+FOCUS.forEach(function(f,i){h+='<button class="chip'+(t.focus.indexOf(f)>=0?" on":"")+'" onclick="tf('+i+')">'+f+'</button>'});
+h+='</div>';if(t.focus.indexOf("その他")>=0)h+='<input type="text" id="to" style="margin-top:8px" value="'+esc(t.focusOther)+'" placeholder="その他の課題">';
+h+='<button class="btn" onclick="saveT()">大会情報を保存</button></div>';
+h+='<div class="card"><h3 style="margin-top:0">バックアップ 💾</h3><div class="sub" style="margin-bottom:10px">記録をファイルに保存したり、別のスマホやURLに移したりできます。</div><div class="row"><button class="btn sm" onclick="exportData()">📤 書き出し</button><label class="btn sm ghost" style="display:inline-flex;align-items:center;justify-content:center">📥 読み込み<input type="file" accept=".json,application/json,text/plain" class="hide" onchange="importData(this)"></label></div></div>';return h}
+function exportData(){try{var b=new Blob([JSON.stringify(db)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="hana-bad-backup-"+ymd(new Date())+".json";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000);toast("書き出しました 📤")}catch(e){toast("書き出せませんでした")}}
+function importData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{var d=JSON.parse(r.result);if(!d||!Array.isArray(d.practices)||typeof d.goals!=="object"||!d.goals||!d.tournament)throw 0;
+if(!confirm("練習記録"+d.practices.length+"件を読み込みます。今のデータは上書きされます。よろしいですか？")){inp.value="";return}
+d.tournament.focus=d.tournament.focus||[];db=d;save();inp.value="";toast("読み込みました 📥");render()}catch(e){toast("読み込めないファイルです")}};r.readAsText(f)}
+function readT(){var t=db.tournament;if($("tn")){t.name=$("tn").value.trim();t.date=$("td").value;t.goal=$("tg").value.trim()}if($("to"))t.focusOther=$("to").value.trim()}
+function tf(i){readT();var f=FOCUS[i],t=db.tournament,k=t.focus.indexOf(f);if(k>=0)t.focus.splice(k,1);else t.focus.push(f);save();render()}
+function saveT(){readT();save();toast("大会情報を保存しました 🏆");render()}
+render();
+</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}</script>
+</body>
+</html>
