@@ -64,7 +64,7 @@ nav button.on{color:var(--mainD);background:var(--soft)}
 <nav id="nav"></nav>
 <script>
 var KEY="hana_bad_v1";
-var MENUS=["基礎打ち","サーブ","フットワーク","ノック","クリア","スマッシュ","ロブ","ゲーム練習","その他"];
+var MENUS=["基礎打ち","サーブ","フットワーク","ノック","クリア","スマッシュ","ロブ","ゲーム練習","ランニング","ゴムチューブ","サーキット","手押車","その他"];
 var FOCUS=["サーブミスを減らす","サーブを奥まで打つ","1歩目を速くする","フットワーク","打ったあとに戻る","体全体を使って打つ","相手の空いている場所を見る","その他"];
 var GOAL_EX=["サーブを安定して奥まで入れる","1歩目を速くする","打ったあとに戻る","体全体を使って打つ"];
 // データ構造: practices[], goals{"YYYY-MM":{title,weeks[5]}}, tournament{name,date,goal,focus[],focusOther}
@@ -90,7 +90,7 @@ MENUS.forEach(function(m,i){h+='<button class="chip'+(draft.menus.indexOf(m)>=0?
 h+='</div>';
 if(draft.menus.indexOf("その他")>=0)h+='<h3>その他の練習内容</h3><input type="text" id="d_other" value="'+esc(draft.other)+'" oninput="draft.other=this.value" placeholder="どんな練習？">';
 h+='<h3>✅ できたこと</h3><textarea id="d_good" oninput="draft.good=this.value" placeholder="今日できたことを書いてみよう">'+esc(draft.good)+'</textarea><div class="sub">例：サーブが奥まで飛んだ／構えて待つことができた</div>'
-+'<h3>🔸 できなかったこと</h3><textarea oninput="draft.bad=this.value" placeholder="難しかったこと・できなかったことを書いてみよう">'+esc(draft.bad)+'</textarea><div class="sub">例：打ったあとに戻れなかった</div>'
++'<h3>🌱 できなかったこと</h3><textarea oninput="draft.bad=this.value" placeholder="難しかったこと・できなかったことを書いてみよう">'+esc(draft.bad)+'</textarea><div class="sub">例：打ったあとに戻れなかった</div>'
 +'<h3>🗣 コーチから言われたこと</h3><textarea oninput="draft.coach=this.value" placeholder="コーチに言われたことを書いてみよう">'+esc(draft.coach)+'</textarea><div class="sub">例：もっと早く構える／体全体を使って打つ</div>'
 +'<h3>🌟 次の練習でがんばること</h3><textarea oninput="draft.next=this.value" placeholder="次の練習でがんばることを書いてみよう">'+esc(draft.next)+'</textarea><div class="sub">例：打ったあとにすぐ戻る／サーブを奥まで打つ</div>'
 +'<button class="btn" onclick="savePractice()">今日の練習を保存</button></div>';
@@ -98,8 +98,8 @@ h+='<h2>📖 過去の練習記録</h2>';
 var list=db.practices.slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:b.id-a.id});
 if(!list.length)h+='<div class="card sub">まだ記録がありません。最初の練習を記録しましょう 🏸</div>';
 list.forEach(function(r){var d=r.date.split("-");var open=openId===r.id;
-h+='<button class="rec" onclick="op('+r.id+')"><b>'+(+d[1])+'/'+(+d[2])+'</b>　'+esc(menuText(r))+(r.good?'<small>✅ できたこと：'+esc(r.good)+'</small>':'')+(r.bad?'<small>🔸 できなかったこと：'+esc(r.bad)+'</small>':'');
-if(open)h+='<div class="det">'+'✅ できたこと\n'+esc(r.good||"（なし）")+'\n\n🔸 できなかったこと\n'+esc(r.bad||"（なし）")+'\n\n🗣 コーチから\n'+esc(r.coach||"（なし）")+'\n\n🌟 次の練習でがんばること\n'+esc(r.next||"（なし）")+'</div><div class="row" style="margin-top:8px"><span class="btn sm ghost" style="display:inline-flex;align-items:center;justify-content:center;color:var(--warn)" onclick="event.stopPropagation();delP('+r.id+')">この記録を削除</span></div>';
+h+='<button class="rec" onclick="op('+r.id+')"><b>'+(+d[1])+'/'+(+d[2])+'</b>　'+esc(menuText(r))+(r.good?'<small>✅ できたこと：'+esc(r.good)+'</small>':'')+(r.bad?'<small>🌱 できなかったこと：'+esc(r.bad)+'</small>':'');
+if(open)h+='<div class="det">'+'✅ できたこと\n'+esc(r.good||"（なし）")+'\n\n🌱 できなかったこと\n'+esc(r.bad||"（なし）")+'\n\n🗣 コーチから\n'+esc(r.coach||"（なし）")+'\n\n🌟 次の練習でがんばること\n'+esc(r.next||"（なし）")+'</div><div class="row" style="margin-top:8px"><span class="btn sm ghost" style="display:inline-flex;align-items:center;justify-content:center;color:var(--warn)" onclick="event.stopPropagation();delP('+r.id+')">この記録を削除</span></div>';
 h+='</button>'});
 return h}
 function menuText(r){return r.menus.map(function(m){return m=="その他"&&r.other?"その他("+r.other+")":m}).join("・")||"（メニューなし）"}
@@ -127,7 +127,7 @@ h+='</div></div>'}
 var ps=db.practices.filter(function(r){return r.date.slice(0,7)==k}),cnt={};
 ps.forEach(function(r){r.menus.forEach(function(m){cnt[m]=(cnt[m]||0)+1})});
 var top=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a]}).slice(0,3).map(function(m){return m+"("+cnt[m]+"回)"}).join("、");
-h+='<div class="card"><h3 style="margin-top:0">📝 今月のふりかえり</h3>練習した回数：<b>'+ps.length+'回</b><br>よく練習したメニュー：'+(top||"まだありません")+'<div class="sub" style="margin-top:6px">✅ できたこと '+ps.filter(function(r){return r.good}).length+'件 ／ 🔸 できなかったこと '+ps.filter(function(r){return r.bad}).length+'件</div></div>';
+h+='<div class="card"><h3 style="margin-top:0">📝 今月のふりかえり</h3>練習した回数：<b>'+ps.length+'回</b><br>よく練習したメニュー：'+(top||"まだありません")+'<div class="sub" style="margin-top:6px">✅ できたこと '+ps.filter(function(r){return r.good}).length+'件 ／ 🌱 できなかったこと '+ps.filter(function(r){return r.bad}).length+'件</div></div>';
 return h}
 function setP(v){var g=db.goals[mkey()];if(!g)return;g.weeks[selWeek]=v;save();render()}
 function pickG(i){$("gt").value=GOAL_EX[i]}
