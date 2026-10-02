@@ -68,7 +68,7 @@ var MENUS=["基礎打ち","サーブ","フットワーク","ノック","クリ�
 var FOCUS=["サーブミスを減らす","サーブを奥まで打つ","1歩目を速くする","フットワーク","打ったあとに戻る","体全体を使って打つ","相手の空いている場所を見る","その他"];
 var GOAL_EX=["サーブを安定して奥まで入れる","1歩目を速くする","打ったあとに戻る","体全体を使って打つ"];
 // データ構造: practices[], goals{"YYYY-MM":{title,weeks[5]}}, tournament{name,date,goal,focus[],focusOther}
-var db=load();var tab="practice";var editG=false;var draft={menus:[],other:"",good:"",bad:"",coach:"",next:""};var openId=null;var selWeek=null;
+var db=load();var tab="practice";var editG=false;var bkOpen=false;var draft={menus:[],other:"",good:"",bad:"",coach:"",next:""};var openId=null;var selWeek=null;
 function load(){try{var s=localStorage.getItem(KEY);if(s){var d=JSON.parse(s);if(d&&d.practices)return d}}catch(e){}
 return{practices:[],goals:{},tournament:{name:"",date:"",goal:"",focus:[],focusOther:""}}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}}
@@ -143,11 +143,15 @@ h+='<div class="card"><h3 style="margin-top:0">🏆 大会名</h3><input type="t
 FOCUS.forEach(function(f,i){h+='<button class="chip'+(t.focus.indexOf(f)>=0?" on":"")+'" onclick="tf('+i+')">'+f+'</button>'});
 h+='</div>';if(t.focus.indexOf("その他")>=0)h+='<input type="text" id="to" style="margin-top:8px" value="'+esc(t.focusOther)+'" placeholder="その他の課題">';
 h+='<button class="btn" onclick="saveT()">大会情報を保存</button></div>';
-h+='<div class="card"><h3 style="margin-top:0">バックアップ 💾</h3><div class="sub" style="margin-bottom:10px">記録をファイルに保存したり、別のスマホやURLに移したりできます。</div><div class="row"><button class="btn sm" onclick="exportData()">📤 書き出し</button><label class="btn sm ghost" style="display:inline-flex;align-items:center;justify-content:center">📥 読み込み<input type="file" accept=".json,application/json,text/plain" class="hide" onchange="importData(this)"></label></div></div>';return h}
+h+='<div class="card"><h3 style="margin-top:0">バックアップ 💾</h3><div class="sub" style="margin-bottom:10px">記録をファイルに保存したり、別のスマホやURLに移したりできます。</div><div class="row"><button class="btn sm" onclick="exportData()">📤 書き出し</button><label class="btn sm ghost" style="display:inline-flex;align-items:center;justify-content:center">📥 読み込み<input type="file" accept=".json,application/json,text/plain" class="hide" onchange="importData(this)"></label></div><div class="row" style="margin-top:8px"><button class="btn sm ghost" onclick="exportText()">📋 テキストでコピー</button><button class="btn sm ghost" onclick="showPaste()">📝 貼り付けて読み込み</button></div>'+(bkOpen?'<textarea id="bk" style="margin-top:10px;font-size:12px;min-height:110px" placeholder="ここにバックアップのテキストを貼り付け"></textarea><button class="btn sm" style="margin-top:8px" onclick="importText()">このテキストから読み込む</button>':'')+'</div>';return h}
 function exportData(){try{var b=new Blob([JSON.stringify(db)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="hana-bad-backup-"+ymd(new Date())+".json";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000);toast("書き出しました 📤")}catch(e){toast("書き出せませんでした")}}
-function importData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{var d=JSON.parse(r.result);if(!d||!Array.isArray(d.practices)||typeof d.goals!=="object"||!d.goals||!d.tournament)throw 0;
-if(!confirm("練習記録"+d.practices.length+"件を読み込みます。今のデータは上書きされます。よろしいですか？")){inp.value="";return}
-d.tournament.focus=d.tournament.focus||[];db=d;save();inp.value="";toast("読み込みました 📥");render()}catch(e){toast("読み込めないファイルです")}};r.readAsText(f)}
+function applyImport(txt){try{var d=JSON.parse(txt);if(!d||!Array.isArray(d.practices)||typeof d.goals!=="object"||!d.goals||!d.tournament)throw 0;
+if(!confirm("練習記録"+d.practices.length+"件を読み込みます。今のデータは上書きされます。よろしいですか？"))return;
+d.tournament.focus=d.tournament.focus||[];db=d;save();bkOpen=false;toast("読み込みました 📥");render()}catch(e){toast("読み込めないデータです")}}
+function importData(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(){applyImport(r.result);inp.value=""};r.readAsText(f)}
+function exportText(){bkOpen=true;render();var t=$("bk");t.value=JSON.stringify(db);t.focus();t.select();try{document.execCommand("copy");toast("コピーしました 📋")}catch(e){toast("全選択しました。コピーしてください")}}
+function showPaste(){bkOpen=true;render();var t=$("bk");t.value="";t.focus()}
+function importText(){applyImport($("bk").value)}
 function readT(){var t=db.tournament;if($("tn")){t.name=$("tn").value.trim();t.date=$("td").value;t.goal=$("tg").value.trim()}if($("to"))t.focusOther=$("to").value.trim()}
 function tf(i){readT();var f=FOCUS[i],t=db.tournament,k=t.focus.indexOf(f);if(k>=0)t.focus.splice(k,1);else t.focus.push(f);save();render()}
 function saveT(){readT();save();toast("大会情報を保存しました 🏆");render()}
