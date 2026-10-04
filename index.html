@@ -52,6 +52,7 @@ nav button.on{color:var(--mainD);background:var(--soft)}
 #toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:#1f3a33;color:#fff;padding:14px 22px;border-radius:99px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .3s;z-index:9}
 #toast.show{opacity:1}
 .hide{display:none}
+.gt{font-size:13px;font-weight:700;color:var(--mainD);margin:14px 2px 6px}.chips.menu .chip{min-height:46px;font-size:15px}
 .pct{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.pct .chip{min-height:48px;padding:4px;font-size:15px}.pct .chip.on::before{content:""}
 </style>
 </head>
@@ -64,7 +65,8 @@ nav button.on{color:var(--mainD);background:var(--soft)}
 <nav id="nav"></nav>
 <script>
 var KEY="hana_bad_v1";
-var MENUS=["基礎打ち","サーブ","フットワーク","ノック","クリア","スマッシュ","ロブ","ゲーム練習","ランニング","ゴムチューブ","サーキット","手押車","その他"];
+var MENU_GROUPS=[{t:"💪 からだづくり",m:["ランニング","体幹","サーキット","手押車","ゴムチューブ"]},{t:"🏸 ラケットを使う",m:["サーブ","フットワーク","クリア","スマッシュ","ロブ","ヘアピン","プッシュ","ドロップ","ゲーム練習"]},{t:"➕ ほか",m:["その他"]}];
+var MENUS=[].concat.apply([],MENU_GROUPS.map(function(g){return g.m}));
 var FOCUS=["サーブミスを減らす","サーブを奥まで打つ","1歩目を速くする","フットワーク","打ったあとに戻る","体全体を使って打つ","相手の空いている場所を見る","その他"];
 var GOAL_EX=["サーブを安定して奥まで入れる","1歩目を速くする","打ったあとに戻る","体全体を使って打つ"];
 // データ構造: practices[], goals{"YYYY-MM":{title,weeks[5]}}, tournament{name,date,goal,focus[],focusOther}
@@ -85,9 +87,8 @@ function render(){nav();$("view").innerHTML=tab=="practice"?vPractice():tab=="go
 
 /* 練習 */
 function vPractice(){var n=new Date();
-var h='<h2>今日の練習 <span class="sub">'+(n.getMonth()+1)+'月'+n.getDate()+'日（'+W[n.getDay()]+'）</span></h2><div class="card"><h3 style="margin-top:0">🏸 練習メニュー</h3><div class="chips">';
-MENUS.forEach(function(m,i){h+='<button class="chip'+(draft.menus.indexOf(m)>=0?" on":"")+'" onclick="tm('+i+')">'+m+'</button>'});
-h+='</div>';
+var h='<h2>今日の練習 <span class="sub">'+(n.getMonth()+1)+'月'+n.getDate()+'日（'+W[n.getDay()]+'）</span></h2><div class="card"><h3 style="margin-top:0">🏸 練習メニュー'+(draft.menus.length?' <span class="sub">（'+draft.menus.length+'こ選択中）</span>':'')+'</h3>';
+var gi=0;MENU_GROUPS.forEach(function(g){h+='<div class="gt">'+g.t+'</div><div class="chips menu">';g.m.forEach(function(m){h+='<button class="chip'+(draft.menus.indexOf(m)>=0?" on":"")+'" onclick="tm('+(gi++)+')">'+m+'</button>'});h+='</div>'});
 if(draft.menus.indexOf("その他")>=0)h+='<h3>その他の練習内容</h3><input type="text" id="d_other" value="'+esc(draft.other)+'" oninput="draft.other=this.value" placeholder="どんな練習？">';
 h+='<h3>✅ できたこと</h3><textarea id="d_good" oninput="draft.good=this.value" placeholder="今日できたことを書いてみよう">'+esc(draft.good)+'</textarea><div class="sub">例：サーブが奥まで飛んだ／構えて待つことができた</div>'
 +'<h3>🌱 できなかったこと</h3><textarea oninput="draft.bad=this.value" placeholder="難しかったこと・できなかったことを書いてみよう">'+esc(draft.bad)+'</textarea><div class="sub">例：打ったあとに戻れなかった</div>'
