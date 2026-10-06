@@ -1,7 +1,7 @@
 // アプリ本体をキャッシュしてオフラインでも開けるようにする。
 // ファイルを変更したら CACHE のバージョン番号を上げること。
 // localStorage（練習記録など）には一切触れない。
-var CACHE = "hana-bad-v6";
+var CACHE = "hana-bad-v7";
 var ASSETS = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png"];
 self.addEventListener("install", function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ASSETS); }).then(function () { return self.skipWaiting(); }));
