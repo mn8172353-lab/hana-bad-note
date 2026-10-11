@@ -71,7 +71,7 @@ var MENUS=[].concat.apply([],MENU_GROUPS.map(function(g){return g.m}));
 var FOCUS=["サーブミスを減らす","サーブを奥まで打つ","1歩目を速くする","フットワーク","打ったあとに戻る","体全体を使って打つ","相手の空いている場所を見る","その他"];
 var GOAL_EX=["サーブを安定して奥まで入れる","1歩目を速くする","打ったあとに戻る","体全体を使って打つ"];
 // データ構造: practices[], goals{"YYYY-MM":{title,weeks[5]}}, tournament{name,date,goal,focus[],focusOther}
-var db=load();var tab="practice";var editG=false;var bkOpen=false;var draft={menus:[],other:"",good:"",bad:"",coach:"",next:""};var openId=null;var selWeek=null;
+var db=load();var tab="practice";var editG=false;var editPid=null;var bkOpen=false;var draft={menus:[],other:"",good:"",bad:"",coach:"",next:""};var openId=null;var selWeek=null;
 function normalize(d){d.goals=d.goals||{};if(!Array.isArray(d.tournaments)){d.tournaments=[];var t=d.tournament;if(t&&(t.name||t.date||t.goal||(t.focus&&t.focus.length)))d.tournaments.push({id:Date.now(),name:t.name||"",date:t.date||"",goal:t.goal||"",events:[],focus:t.focus||[],focusOther:t.focusOther||""})}delete d.tournament;d.tournaments.forEach(function(t){t.events=t.events||[];t.focus=t.focus||[]});return d}
 function load(){try{var s=localStorage.getItem(KEY);if(s){var d=JSON.parse(s);if(d&&d.practices)return normalize(d)}}catch(e){}
 return{practices:[],goals:{},tournaments:[]}}
@@ -89,29 +89,34 @@ function render(){nav();$("view").innerHTML=tab=="practice"?vPractice():tab=="go
 
 /* 練習 */
 function vPractice(){var n=new Date();
-var h='<h2>今日の練習 <span class="sub">'+(n.getMonth()+1)+'月'+n.getDate()+'日（'+W[n.getDay()]+'）</span></h2><div class="card"><h3 style="margin-top:0">🏸 練習メニュー'+(draft.menus.length?' <span class="sub">（'+draft.menus.length+'こ選択中）</span>':'')+'</h3>';
+var h=(editPid?'<h2>✏️ 記録を修正する</h2>':'<h2>今日の練習 <span class="sub">'+(n.getMonth()+1)+'月'+n.getDate()+'日（'+W[n.getDay()]+'）</span></h2>')+'<div class="card">'+(editPid?'<h3 style="margin-top:0">📅 日付</h3><input type="date" id="d_date" value="'+esc(draft.date)+'" onchange="draft.date=this.value">':'')+'<h3'+(editPid?'':' style="margin-top:0"')+'>🏸 練習メニュー'+(draft.menus.length?' <span class="sub">（'+draft.menus.length+'こ選択中）</span>':'')+'</h3>';
 var gi=0;MENU_GROUPS.forEach(function(g){h+='<div class="gt">'+g.t+'</div><div class="chips menu">';g.m.forEach(function(m){h+='<button class="chip'+(draft.menus.indexOf(m)>=0?" on":"")+'" onclick="tm('+(gi++)+')">'+m+'</button>'});h+='</div>'});
+var lg=draft.menus.filter(function(m){return MENUS.indexOf(m)<0});if(lg.length){h+='<div class="gt">🕘 以前のメニュー</div><div class="chips menu">';lg.forEach(function(m){h+='<button class="chip on" onclick="tmn(\''+esc(m)+'\')">'+esc(m)+'</button>'});h+='</div>'}
 if(draft.menus.indexOf("その他")>=0)h+='<h3>その他の練習内容</h3><input type="text" id="d_other" value="'+esc(draft.other)+'" oninput="draft.other=this.value" placeholder="どんな練習？">';
 h+='<h3>✅ できたこと</h3><textarea id="d_good" oninput="draft.good=this.value" placeholder="今日できたことを書いてみよう">'+esc(draft.good)+'</textarea><div class="sub">例：サーブが奥まで飛んだ／構えて待つことができた</div>'
 +'<h3>🌱 できなかったこと</h3><textarea oninput="draft.bad=this.value" placeholder="難しかったこと・できなかったことを書いてみよう">'+esc(draft.bad)+'</textarea><div class="sub">例：打ったあとに戻れなかった</div>'
 +'<h3>🗣 コーチから言われたこと</h3><textarea oninput="draft.coach=this.value" placeholder="コーチに言われたことを書いてみよう">'+esc(draft.coach)+'</textarea><div class="sub">例：もっと早く構える／体全体を使って打つ</div>'
 +'<h3>🌟 次の練習でがんばること</h3><textarea oninput="draft.next=this.value" placeholder="次の練習でがんばることを書いてみよう">'+esc(draft.next)+'</textarea><div class="sub">例：打ったあとにすぐ戻る／サーブを奥まで打つ</div>'
-+'<button class="btn" onclick="savePractice()">今日の練習を保存</button></div>';
++'<button class="btn" onclick="savePractice()">'+(editPid?'修正を保存':'今日の練習を保存')+'</button>'+(editPid?'<button class="btn ghost" onclick="cancelEdit()">やめる</button>':'')+'</div>';
 h+='<h2>📖 過去の練習記録</h2>';
 var list=db.practices.slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:b.id-a.id});
 if(!list.length)h+='<div class="card sub">まだ記録がありません。最初の練習を記録しましょう 🏸</div>';
 list.forEach(function(r){var d=r.date.split("-");var open=openId===r.id;
 h+='<button class="rec" onclick="op('+r.id+')"><b>'+(+d[1])+'/'+(+d[2])+'</b>　'+esc(menuText(r))+(r.good?'<small>✅ できたこと：'+esc(r.good)+'</small>':'')+(r.bad?'<small>🌱 できなかったこと：'+esc(r.bad)+'</small>':'');
-if(open)h+='<div class="det">'+'✅ できたこと\n'+esc(r.good||"（なし）")+'\n\n🌱 できなかったこと\n'+esc(r.bad||"（なし）")+'\n\n🗣 コーチから\n'+esc(r.coach||"（なし）")+'\n\n🌟 次の練習でがんばること\n'+esc(r.next||"（なし）")+'</div><div class="row" style="margin-top:8px"><span class="btn sm ghost" style="display:inline-flex;align-items:center;justify-content:center;color:var(--warn)" onclick="event.stopPropagation();delP('+r.id+')">この記録を削除</span></div>';
+if(open)h+='<div class="det">'+'✅ できたこと\n'+esc(r.good||"（なし）")+'\n\n🌱 できなかったこと\n'+esc(r.bad||"（なし）")+'\n\n🗣 コーチから\n'+esc(r.coach||"（なし）")+'\n\n🌟 次の練習でがんばること\n'+esc(r.next||"（なし）")+'</div><div class="row" style="margin-top:8px"><span class="btn sm" style="display:inline-flex;align-items:center;justify-content:center" onclick="event.stopPropagation();startEdit('+r.id+')">✏️ 修正する</span><span class="btn sm ghost" style="display:inline-flex;align-items:center;justify-content:center;color:var(--warn)" onclick="event.stopPropagation();delP('+r.id+')">この記録を削除</span></div>';
 h+='</button>'});
 return h}
 function menuText(r){return r.menus.map(function(m){return m=="その他"&&r.other?"その他("+r.other+")":m}).join("・")||"（メニューなし）"}
 function tm(i){var m=MENUS[i],k=draft.menus.indexOf(m);if(k>=0)draft.menus.splice(k,1);else draft.menus.push(m);render()}
+function tmn(m){var k=draft.menus.indexOf(m);if(k>=0)draft.menus.splice(k,1);render()}
+function startEdit(id){var r=db.practices.filter(function(x){return x.id===id})[0];if(!r)return;draft={menus:r.menus.slice(),other:r.other||"",good:r.good||"",bad:r.bad||"",coach:r.coach||"",next:r.next||"",date:r.date};editPid=id;openId=null;render();window.scrollTo(0,0)}
+function cancelEdit(){editPid=null;draft={menus:[],other:"",good:"",bad:"",coach:"",next:""};render()}
 function op(id){openId=openId===id?null:id;render()}
 function delP(id){if(confirm("この記録を削除しますか？")){db.practices=db.practices.filter(function(r){return r.id!==id});save();openId=null;render()}}
 function savePractice(){if(!draft.menus.length&&!draft.good&&!draft.bad&&!draft.coach&&!draft.next){toast("メニューか内容を入れてね");return}
-db.practices.push({id:Date.now(),date:ymd(new Date()),menus:draft.menus.slice(),other:draft.menus.indexOf("その他")>=0?draft.other:"",good:draft.good.trim(),bad:draft.bad.trim(),coach:draft.coach.trim(),next:draft.next.trim()});
-save();draft={menus:[],other:"",good:"",bad:"",coach:"",next:""};toast("練習を記録しました 🏸");render();window.scrollTo(0,0)}
+var rec={menus:draft.menus.slice(),other:draft.menus.indexOf("その他")>=0?draft.other:"",good:draft.good.trim(),bad:draft.bad.trim(),coach:draft.coach.trim(),next:draft.next.trim()};
+if(editPid){db.practices.forEach(function(r){if(r.id===editPid){for(var k in rec)r[k]=rec[k];if(draft.date)r.date=draft.date}});editPid=null;toast("修正しました ✏️")}else{rec.id=Date.now();rec.date=ymd(new Date());db.practices.push(rec);toast("練習を記録しました 🏸")}
+save();draft={menus:[],other:"",good:"",bad:"",coach:"",next:""};render();window.scrollTo(0,0)}
 
 /* 目標 */
 function mkey(){var n=new Date();return n.getFullYear()+"-"+p2(n.getMonth()+1)}
