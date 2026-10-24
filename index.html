@@ -52,6 +52,7 @@ nav button.on{color:var(--mainD);background:var(--soft)}
 #toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%);background:#1f3a33;color:#fff;padding:14px 22px;border-radius:99px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .3s;z-index:9}
 #toast.show{opacity:1}
 .hide{display:none}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;background:var(--soft);color:var(--mainD);margin-left:4px}.badge.rep{background:#fde8e4;color:var(--warn)}.q{font-size:13px;color:var(--sub);margin-top:4px;line-height:1.5}
 .item{display:flex;align-items:center;gap:6px;background:var(--soft);border-radius:14px;padding:2px 2px 2px 14px;margin-bottom:6px}.item span{flex:1}.item button{border:0;background:transparent;font-size:18px;min-width:46px;min-height:46px;color:var(--sub)}
 .ck{display:flex;align-items:center;gap:12px;padding:12px;border:2px solid var(--line);border-radius:14px;margin-bottom:6px;font-size:16px}.ck input{width:26px;height:26px;accent-color:var(--main);flex:none}.ck.on{background:var(--soft);border-color:var(--main)}
 .rec.past{opacity:.6}.warn{color:var(--warn)}
@@ -73,7 +74,7 @@ var MENUS=[].concat.apply([],MENU_GROUPS.map(function(g){return g.m}));
 var FOCUS=["サーブミスを減らす","サーブを奥まで打つ","1歩目を速くする","フットワーク","打ったあとに戻る","体全体を使って打つ","相手の空いている場所を見る","その他"];
 var GOAL_EX=["サーブを安定して奥まで入れる","1歩目を速くする","打ったあとに戻る","体全体を使って打つ"];
 // データ構造: practices[], goals{"YYYY-MM":{title,weeks[5]}}, tournament{name,date,goal,focus[],focusOther}
-var db=load();var tab="practice";var editG=false;var editPid=null;var bkOpen=false;var draft={menus:[],other:"",good:"",bad:"",coach:"",nexts:[],nextIn:"",review:null};var openId=null;var selWeek=null;
+var db=load();var tab="practice";var editG=false;var mamaView="an",mamaDays=0,memoAll=false;var editPid=null;var bkOpen=false;var draft={menus:[],other:"",good:"",bad:"",coach:"",nexts:[],nextIn:"",review:null};var openId=null;var selWeek=null;
 function normalize(d){d.goals=d.goals||{};if(!Array.isArray(d.tournaments)){d.tournaments=[];var t=d.tournament;if(t&&(t.name||t.date||t.goal||(t.focus&&t.focus.length)))d.tournaments.push({id:Date.now(),name:t.name||"",date:t.date||"",goal:t.goal||"",events:[],focus:t.focus||[],focusOther:t.focusOther||""})}delete d.tournament;d.tournaments.forEach(function(t){t.events=t.events||[];t.focus=t.focus||[]});return d}
 function load(){try{var s=localStorage.getItem(KEY);if(s){var d=JSON.parse(s);if(d&&d.practices)return normalize(d)}}catch(e){}
 return{practices:[],goals:{},tournaments:[]}}
@@ -84,10 +85,63 @@ function p2(n){return(n<10?"0":"")+n}
 function ymd(d){return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate())}
 function toast(m){var t=$("toast");t.textContent=m;t.className="show";setTimeout(function(){t.className=""},1800)}
 var W=["日","月","火","水","木","金","土"];
-function nav(){var t=[["practice","🏸","練習"],["goal","🎯","目標"],["match","🏆","大会"]];
+function nav(){var t=[["practice","🏸","練習"],["goal","🎯","目標"],["match","🏆","大会"],["mama","👩","ママ"]];
 $("nav").innerHTML=t.map(function(x){return'<button class="'+(tab==x[0]?"on":"")+'" onclick="go(\''+x[0]+'\')"><span>'+x[1]+'</span>'+x[2]+'</button>'}).join("")}
 function go(t){tab=t;render();window.scrollTo(0,0)}
-function render(){nav();$("view").innerHTML=tab=="practice"?vPractice():tab=="goal"?vGoal():vMatch()}
+/* ママ用: 書かれた言葉をキーワードで分類して傾向を出す（分類は THEMES を編集） */
+var THEMES=[
+{k:"構える・準備",i:"🧍",w:["構え","待つ","準備","ラケットを上げ","ラケットを立て"]},
+{k:"1歩目・動き出し",i:"👟",w:["1歩目","一歩目","動き出し","反応","スタート","出遅れ","動くのが遅"]},
+{k:"打ったあとに戻る",i:"🔙",w:["戻","ホーム"]},
+{k:"フットワーク",i:"🦶",w:["フットワーク","足","ステップ","移動","動き"]},
+{k:"サーブ",i:"🎯",w:["サーブ","奥まで","ショート"]},
+{k:"体の使い方",i:"💪",w:["体全体","体を","体重","腕","振り","スイング","肘","ひじ","手首","ひねり","回転"]},
+{k:"打点・タイミング",i:"🏸",w:["打点","前で","高い","タイミング","落ちる","下がっ"]},
+{k:"コース・相手を見る",i:"👀",w:["相手","空い","コース","狙","見る","見て"]},
+{k:"ミス・安定",i:"🛡️",w:["ミス","入らな","ネット","アウト","安定","続か"]},
+{k:"声・気持ち",i:"📣",w:["声","元気","笑顔","気持ち","あきら","集中","ファイト"]},
+{k:"スピード・力",i:"⚡",w:["速く","スピード","強く","パワー","力"]}];
+var OTHER={k:"その他",i:"📝",w:[]};
+function items(s){return(s||"").split(/[\n。・／\/]+/).map(function(x){return x.trim()}).filter(Boolean)}
+function themesOf(t){t=t.normalize("NFKC");var m=THEMES.filter(function(h){return h.w.some(function(w){return t.indexOf(w)>=0})});return m.length?m:[OTHER]}
+function md(d){var a=d.split("-");return(+a[1])+"/"+(+a[2])}
+function setMV(x){mamaView=x;render()}
+function setMD(d){mamaDays=d;render()}
+function setMama(id,v){db.practices.forEach(function(r){if(r.id===id)r.mama=v.trim()});save();toast("メモを保存しました 👩")}
+function analyze(){var recs=db.practices.slice().sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:a.id-b.id});
+if(mamaDays){var c=new Date();c.setDate(c.getDate()-mamaDays);var cs=ymd(c);recs=recs.filter(function(r){return r.date>=cs})}
+var n=recs.length,T={},all=THEMES.concat([OTHER]);all.forEach(function(h){T[h.k]={coach:[],bad:[],mama:[],good:[]}});
+recs.forEach(function(r,idx){[["coach",r.coach],["bad",r.bad],["mama",r.mama],["good",r.good]].forEach(function(p){items(p[1]).forEach(function(it){themesOf(it).forEach(function(h){T[h.k][p[0]].push({i:idx,d:r.date,t:it})})})})});
+var rows=[];all.forEach(function(h){var o=T[h.k],pr=o.coach.concat(o.bad,o.mama);if(!pr.length)return;
+var lastP=Math.max.apply(null,pr.map(function(x){return x.i})),lastG=o.good.length?Math.max.apply(null,o.good.map(function(x){return x.i})):-1;
+var cr=Array.from(new Set(o.coach.map(function(x){return x.i}))).length,recent=lastP>=n-4;
+var st=lastG>lastP?"up":recent&&(cr>=2||pr.length>=3)?"rep":recent?"new":"quiet",score=0;
+pr.forEach(function(x){score+=(x.i>=n-5?2:1)*(o.coach.indexOf(x)>=0?2:1.5)});o.good.forEach(function(x){if(x.i>=n-5)score-=2});
+rows.push({h:h,o:o,cr:cr,lastD:recs[lastP].date,st:st,score:score,np:pr.length,ng:o.good.length})});
+return{recs:recs,n:n,rows:rows}}
+function bd(st){return{up:'<span class="badge">📈 改善中</span>',rep:'<span class="badge rep">🔥 くりかえし</span>',"new":'<span class="badge">🆕 最近の課題</span>',quiet:'<span class="badge">💤 最近は出ていない</span>'}[st]}
+function vMama(){var h='<h2>👩 ママ用</h2><div class="chips" style="margin-bottom:12px"><button class="chip'+(mamaView=="an"?" on":"")+'" onclick="setMV(\'an\')">📊 分析</button><button class="chip'+(mamaView=="memo"?" on":"")+'" onclick="setMV(\'memo\')">📝 ひとことメモ</button></div>';return h+(mamaView=="an"?mamaAnalysis():mamaMemo())}
+function mamaMemo(){var list=db.practices.slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:b.id-a.id}),h='<div class="sub" style="margin:0 2px 8px">練習のあとに、ママから見て気づいたことを1行で書いてね。分析にも使われます。</div>';
+if(!list.length)h+='<div class="card sub">まだ練習の記録がありません。</div>';
+(memoAll?list:list.slice(0,5)).forEach(function(r){h+='<div class="card"><b>'+md(r.date)+'</b>　'+esc(menuText(r))+(r.coach?'<div class="q">🗣 '+esc(r.coach)+'</div>':'')+'<input type="text" style="margin-top:8px" value="'+esc(r.mama||"")+'" placeholder="👩 ママのひとこと（例：構えが早くなった）" onchange="setMama('+r.id+',this.value)"></div>'});
+if(!memoAll&&list.length>5)h+='<button class="btn ghost" onclick="memoAll=true;render()">もっと前の記録も見る</button>';return h}
+function mamaAnalysis(){var a=analyze(),h='<div class="chips" style="margin-bottom:12px"><button class="chip'+(!mamaDays?" on":"")+'" onclick="setMD(0)">全期間</button><button class="chip'+(mamaDays==30?" on":"")+'" onclick="setMD(30)">直近30日</button></div>';
+if(!a.n)return h+'<div class="card sub">この期間の練習記録がありません。</div>';
+var nc=0,nm=0,rv=[];a.recs.forEach(function(r){nc+=items(r.coach).length;nm+=items(r.mama).length;rv=rv.concat(r.review||[])});var dn=rv.filter(function(x){return x.done}).length;
+h+='<div class="card"><b>📋 まとめ</b><div class="q">練習 '+a.n+'回 ／ コーチの指摘 '+nc+'件 ／ ママのメモ '+nm+'件'+(rv.length?'<br>前回のがんばること：'+dn+' / '+rv.length+' できた':'')+'</div></div>';
+var rp=a.rows.filter(function(x){return x.cr>=2}).sort(function(x,y){return y.cr-x.cr});
+h+='<h3>🔥 くりかえし言われていること</h3>';
+if(!rp.length)h+='<div class="card sub">同じことを何回も言われている項目は、まだありません 👍</div>';
+rp.forEach(function(x){h+='<div class="card"><b>'+x.h.i+' '+x.h.k+'</b> '+bd(x.st)+'<div class="q">コーチから '+x.cr+'回（最後 '+md(x.lastD)+'）</div>'+x.o.coach.slice(-3).map(function(c){return'<div class="q">🗣 '+esc(c.t)+'</div>'}).join("")+'</div>'});
+h+='<h3>📈 言われたことは直っている？</h3><div class="card">';
+a.rows.slice().sort(function(x,y){return x.lastD<y.lastD?1:-1}).forEach(function(x){h+='<div style="padding:8px 0;border-bottom:1px dashed var(--line)"><b>'+x.h.i+' '+x.h.k+'</b> '+bd(x.st)+'<div class="q">気になる点 '+x.np+'件 ／ できた '+x.ng+'件</div></div>'});
+h+='<div class="q">※ 指摘のあとに「できたこと」が書かれていれば改善中、と判定しています。</div></div>';
+var wk=a.rows.filter(function(x){return x.score>0}).sort(function(x,y){return y.score-x.score}).slice(0,3);
+h+='<h3>🌱 これからの弱点</h3>';
+if(!wk.length)h+='<div class="card sub">記録がたまると、ここに出ます。</div>';
+wk.forEach(function(x,i){h+='<div class="card"><b>'+(i+1)+'. '+x.h.i+' '+x.h.k+'</b> '+bd(x.st)+'<div class="q">最近の記録でよく出ています（気になる点 '+x.np+'件、最後 '+md(x.lastD)+'）<br>👉 次の練習では「'+x.h.k+'」を意識してみよう</div></div>'});
+return h+'<div class="sub" style="margin:8px 2px">※ 書かれた言葉から自動で分けているので、目安として見てください。</div>'}
+function render(){nav();$("view").innerHTML=tab=="practice"?vPractice():tab=="goal"?vGoal():tab=="mama"?vMama():vMatch()}
 
 /* 練習 */
 function vPractice(){var n=new Date();if(!editPid&&draft.review===null)draft.review=prevNexts();
@@ -105,7 +159,7 @@ var list=db.practices.slice().sort(function(a,b){return a.date<b.date?1:a.date>b
 if(!list.length)h+='<div class="card sub">まだ記録がありません。最初の練習を記録しましょう 🏸</div>';
 list.forEach(function(r){var d=r.date.split("-");var open=openId===r.id;
 h+='<button class="rec" onclick="op('+r.id+')"><b>'+(+d[1])+'/'+(+d[2])+'</b>　'+esc(menuText(r))+(r.good?'<small>✅ できたこと：'+esc(r.good)+'</small>':'')+(r.bad?'<small>🌱 できなかったこと：'+esc(r.bad)+'</small>':'');
-if(open)h+='<div class="det">'+'✅ できたこと\n'+esc(r.good||"（なし）")+'\n\n🌱 できなかったこと\n'+esc(r.bad||"（なし）")+'\n\n🗣 コーチから\n'+esc(r.coach||"（なし）")+'\n\n✔️ 前回のがんばること\n'+esc((r.review&&r.review.length)?r.review.map(function(x){return(x.done?"✅ ":"⬜ ")+x.text}).join("\n"):"（なし）")+'\n\n🌟 次の練習でがんばること\n'+esc(nextsOf(r).length?nextsOf(r).map(function(t){return"・"+t}).join("\n"):"（なし）")+'</div><div class="row" style="margin-top:8px"><span class="btn sm" style="display:inline-flex;align-items:center;justify-content:center" onclick="event.stopPropagation();startEdit('+r.id+')">✏️ 修正する</span><span class="btn sm ghost" style="display:inline-flex;align-items:center;justify-content:center;color:var(--warn)" onclick="event.stopPropagation();delP('+r.id+')">この記録を削除</span></div>';
+if(open)h+='<div class="det">'+'✅ できたこと\n'+esc(r.good||"（なし）")+'\n\n🌱 できなかったこと\n'+esc(r.bad||"（なし）")+'\n\n🗣 コーチから\n'+esc(r.coach||"（なし）")+'\n\n✔️ 前回のがんばること\n'+esc((r.review&&r.review.length)?r.review.map(function(x){return(x.done?"✅ ":"⬜ ")+x.text}).join("\n"):"（なし）")+'\n\n🌟 次の練習でがんばること\n'+esc(nextsOf(r).length?nextsOf(r).map(function(t){return"・"+t}).join("\n"):"（なし）")+(r.mama?'\n\n👩 ママのひとこと\n'+esc(r.mama):'')+'</div><div class="row" style="margin-top:8px"><span class="btn sm" style="display:inline-flex;align-items:center;justify-content:center" onclick="event.stopPropagation();startEdit('+r.id+')">✏️ 修正する</span><span class="btn sm ghost" style="display:inline-flex;align-items:center;justify-content:center;color:var(--warn)" onclick="event.stopPropagation();delP('+r.id+')">この記録を削除</span></div>';
 h+='</button>'});
 return h}
 function menuText(r){return r.menus.map(function(m){return m=="その他"&&r.other?"その他("+r.other+")":m}).join("・")||"（メニューなし）"}
