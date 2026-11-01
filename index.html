@@ -75,7 +75,7 @@ var FOCUS=["サーブミスを減らす","サーブを奥まで打つ","1歩目�
 var GOAL_EX=["サーブを安定して奥まで入れる","1歩目を速くする","打ったあとに戻る","体全体を使って打つ"];
 // データ構造: practices[], goals{"YYYY-MM":{title,weeks[5]}}, tournament{name,date,goal,focus[],focusOther}
 var db=load();var tab="practice";var editG=false;var mamaView="an",mamaDays=0,memoAll=false;var editPid=null;var bkOpen=false;var draft={menus:[],other:"",good:"",bad:"",coach:"",nexts:[],nextIn:"",review:null};var openId=null;var selWeek=null;
-function normalize(d){d.goals=d.goals||{};if(!Array.isArray(d.tournaments)){d.tournaments=[];var t=d.tournament;if(t&&(t.name||t.date||t.goal||(t.focus&&t.focus.length)))d.tournaments.push({id:Date.now(),name:t.name||"",date:t.date||"",goal:t.goal||"",events:[],focus:t.focus||[],focusOther:t.focusOther||""})}delete d.tournament;d.tournaments.forEach(function(t){t.events=t.events||[];t.focus=t.focus||[]});return d}
+function normalize(d){d.goals=d.goals||{};Object.keys(d.goals).forEach(function(k){var g=d.goals[k];if(!Array.isArray(g))d.goals[k]=g&&g.title?[{id:Number(k.replace('-','')),title:g.title,weeks:g.weeks||[0,0,0,0,0]}]:[]});if(!Array.isArray(d.tournaments)){d.tournaments=[];var t=d.tournament;if(t&&(t.name||t.date||t.goal||(t.focus&&t.focus.length)))d.tournaments.push({id:Date.now(),name:t.name||"",date:t.date||"",goal:t.goal||"",events:[],focus:t.focus||[],focusOther:t.focusOther||""})}delete d.tournament;d.tournaments.forEach(function(t){t.events=t.events||[];t.focus=t.focus||[]});return d}
 function load(){try{var s=localStorage.getItem(KEY);if(s){var d=JSON.parse(s);if(d&&d.practices)return normalize(d)}}catch(e){}
 return{practices:[],goals:{},tournaments:[]}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}}
@@ -185,28 +185,49 @@ save();draft={menus:[],other:"",good:"",bad:"",coach:"",nexts:[],nextIn:"",revie
 
 /* 目標 */
 function mkey(){var n=new Date();return n.getFullYear()+"-"+p2(n.getMonth()+1)}
-function vGoal(){var n=new Date(),k=mkey(),g=db.goals[k];if(selWeek===null)selWeek=Math.min(5,Math.ceil(n.getDate()/7))-1;
-var h='<h2>'+(n.getMonth()+1)+'月の目標 🎯</h2>';
-if(g&&!editG){h+='<div class="card"><div class="sub">🎯 今月の目標</div><div style="font-size:20px;font-weight:800;margin:6px 0 12px">'+esc(g.title)+'</div><button class="btn sm ghost" onclick="editG=true;render()">✏️ 変更する</button></div>'}
-else{h+='<div class="card"><h3 style="margin-top:0">🎯 今月の目標を決めよう</h3><input type="text" id="gt" value="'+esc(g?g.title:"")+'" placeholder="目標を書くか、下から選ぼう"><div class="row" style="margin-top:8px">';
-GOAL_EX.forEach(function(x,i){h+='<button class="chip" style="flex:1 1 100%;min-height:44px;font-size:14px" onclick="pickG('+i+')">'+x+'</button>'});
-h+='</div><button class="btn" onclick="saveG()">目標を保存</button>'+(g?'<button class="btn ghost" onclick="editG=false;render()">やめる</button>':'')+'</div>'}
-if(g){var avg=Math.round(g.weeks.reduce(function(a,b){return a+b},0)/5);
-h+='<div class="card"><div class="sub">📈 1ヶ月の平均</div><div class="avg">'+avg+'%</div><div class="bar" style="margin:6px 0 10px"><i style="width:'+avg+'%"></i></div>';
+var gMonth=null,gForm=null,selGoal=null;
+function mlabel(k){var a=k.split("-"),y=new Date().getFullYear();return(+a[0]!==y?a[0]+"年":"")+(+a[1])+"月"}
+function gAvg(g){return Math.round(g.weeks.reduce(function(a,b){return a+b},0)/5)}
+function gMonths(){var ks=Object.keys(db.goals).filter(function(k){return db.goals[k].length});if(ks.indexOf(mkey())<0)ks.push(mkey());return ks.sort()}
+function formG(){var g=gForm==="new"?null:(db.goals[gMonth]||[]).filter(function(x){return x.id===gForm})[0];
+var h='<div class="card"><h3 style="margin-top:0">🎯 '+(g?'目標の名前を変える':'目標を追加')+'</h3><input type="text" id="gt" value="'+esc(g?g.title:"")+'" placeholder="目標を書くか、下から選ぼう">';
+if(!g){h+='<div class="row" style="margin-top:8px">';GOAL_EX.forEach(function(x,i){h+='<button class="chip" style="flex:1 1 100%;min-height:44px;font-size:14px" onclick="pickG('+i+')">'+x+'</button>'});h+='</div>'}
+return h+'<button class="btn" onclick="saveG()">保存</button><button class="btn ghost" onclick="cancelG()">やめる</button></div>'}
+function vGoal(){var n=new Date(),cur=mkey();if(!gMonth)gMonth=cur;var k=gMonth,list=db.goals[k]||[],ms=gMonths();if(ms.indexOf(k)<0){ms.push(k);ms.sort()}
+if(selWeek===null)selWeek=Math.min(5,Math.ceil(n.getDate()/7))-1;
+var mi=ms.indexOf(k),prev=mi>0?ms[mi-1]:null,next=mi<ms.length-1?ms[mi+1]:null;
+var h='<h2>'+mlabel(k)+'の目標 🎯'+(k!==cur?' <span class="badge">📖 ふりかえり</span>':'')+'</h2>';
+h+='<div class="row" style="flex-wrap:nowrap;margin-bottom:10px"><button class="btn sm ghost" style="flex:1;opacity:'+(prev?1:.35)+'" '+(prev?'onclick="gm(\''+prev+'\')"':'disabled')+'>◀ '+(prev?mlabel(prev):"")+'</button><button class="btn sm ghost" style="flex:1;opacity:'+(next?1:.35)+'" '+(next?'onclick="gm(\''+next+'\')"':'disabled')+'>'+(next?mlabel(next):"")+' ▶</button></div>';
+if(k!==cur)h+='<button class="btn ghost" style="margin:0 0 10px" onclick="gm(\''+cur+'\')">今月にもどる</button>';
+if(list.length){var avg=Math.round(list.reduce(function(a,g){return a+gAvg(g)},0)/list.length);
+h+='<div class="card"><div class="sub">📈 この月の平均（目標 '+list.length+'つ）</div><div class="avg">'+avg+'%</div><div class="bar" style="margin-top:6px"><i style="width:'+avg+'%"></i></div></div>'}
+else if(gForm!=="new")h+='<div class="card sub">この月の目標はまだありません。</div>';
+list.forEach(function(g){var sel=selGoal===g.id,a=gAvg(g);
+h+='<div class="card"><button style="width:100%;text-align:left;border:0;background:none;color:var(--ink);padding:0;font-size:16px" onclick="sg('+g.id+')"><div style="display:flex;justify-content:space-between;gap:8px;font-weight:800"><span>🎯 '+esc(g.title)+'</span><span style="color:var(--mainD)">'+a+'%</span></div><div class="bar" style="margin-top:8px"><i style="width:'+a+'%"></i></div><div class="sub" style="margin-top:6px">'+(sel?'▲ とじる':'▼ 週ごとの進捗を見る・入力')+'</div></button>';
+if(sel){if(gForm===g.id)h+=formG();else{
 for(var i=0;i<5;i++)h+='<button class="wk'+(i==selWeek?" sel":"")+'" onclick="sw('+i+')"><span>第'+(i+1)+'週</span><div class="bar"><i style="width:'+g.weeks[i]+'%"></i></div><span>'+g.weeks[i]+'%</span></button>';
 h+='<h3>第'+(selWeek+1)+'週は何％できた？</h3><div class="pct">';
 for(var v=0;v<=100;v+=10)h+='<button class="chip'+(g.weeks[selWeek]===v?" on":"")+'" onclick="setP('+v+')">'+v+'%'+(v==100?"🎉":"")+'</button>';
-h+='</div></div>'}
+h+='</div><div class="row" style="margin-top:12px"><button class="btn sm ghost" onclick="editGoal('+g.id+')">✏️ 名前を変える</button><button class="btn sm ghost warn" onclick="delG('+g.id+')">🗑 削除</button></div>'}}
+h+='</div>'});
+if(gForm==="new")h+=formG();else if(gForm===null)h+='<button class="btn" style="margin-top:0" onclick="addG()">＋ 目標を追加</button>';
 var ps=db.practices.filter(function(r){return r.date.slice(0,7)==k}),cnt={};
 ps.forEach(function(r){r.menus.forEach(function(m){cnt[m]=(cnt[m]||0)+1})});
 var top=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a]}).slice(0,3).map(function(m){return m+"("+cnt[m]+"回)"}).join("、");
-h+='<div class="card"><h3 style="margin-top:0">📝 今月のふりかえり</h3>練習した回数：<b>'+ps.length+'回</b><br>よく練習したメニュー：'+(top||"まだありません")+'<div class="sub" style="margin-top:6px">✅ できたこと '+ps.filter(function(r){return r.good}).length+'件 ／ 🌱 できなかったこと '+ps.filter(function(r){return r.bad}).length+'件</div></div>';
+h+='<div class="card" style="margin-top:12px"><h3 style="margin-top:0">📝 '+mlabel(k)+'のふりかえり</h3>練習した回数：<b>'+ps.length+'回</b><br>よく練習したメニュー：'+(top||"まだありません")+'<div class="sub" style="margin-top:6px">✅ できたこと '+ps.filter(function(r){return r.good}).length+'件 ／ 🌱 できなかったこと '+ps.filter(function(r){return r.bad}).length+'件</div></div>';
 return h}
-function setP(v){var g=db.goals[mkey()];if(!g)return;g.weeks[selWeek]=v;save();render()}
+function gm(k){gMonth=k;selGoal=null;gForm=null;render();window.scrollTo(0,0)}
+function sg(id){selGoal=selGoal===id?null:id;gForm=null;render()}
+function addG(){gForm="new";render()}
+function editGoal(id){gForm=id;render()}
+function cancelG(){gForm=null;render()}
 function pickG(i){$("gt").value=GOAL_EX[i]}
-function saveG(){var t=$("gt").value.trim();if(!t){toast("目標を入れてね");return}var k=mkey();
-db.goals[k]=db.goals[k]||{title:"",weeks:[0,0,0,0,0]};db.goals[k].title=t;editG=false;save();toast("目標を保存しました 🎯");render()}
+function saveG(){var t=$("gt").value.trim();if(!t){toast("目標を入れてね");return}var L=db.goals[gMonth]=db.goals[gMonth]||[];
+if(gForm==="new"){var g={id:Date.now(),title:t,weeks:[0,0,0,0,0]};L.push(g);selGoal=g.id}else L.forEach(function(x){if(x.id===gForm)x.title=t});
+gForm=null;save();toast("目標を保存しました 🎯");render()}
+function delG(id){if(!confirm("この目標を削除しますか？"))return;db.goals[gMonth]=(db.goals[gMonth]||[]).filter(function(x){return x.id!==id});selGoal=null;save();render()}
 function sw(i){selWeek=i;render()}
+function setP(v){(db.goals[gMonth]||[]).forEach(function(g){if(g.id===selGoal)g.weeks[selWeek]=v});save();render()}
 
 /* 大会 */
 function daysLeft(s){if(!s)return null;var a=s.split("-"),t=new Date(+a[0],+a[1]-1,+a[2]),n=new Date();n=new Date(n.getFullYear(),n.getMonth(),n.getDate());return Math.round((t-n)/86400000)}
