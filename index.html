@@ -69,13 +69,13 @@ nav button.on{color:var(--mainD);background:var(--soft)}
 <nav id="nav"></nav>
 <script>
 var KEY="hana_bad_v1";
-var MENU_GROUPS=[{t:"💪 からだづくり",m:["ランニング","体幹","サーキット","手押車","ゴムチューブ"]},{t:"🏸 ラケットを使う",m:["サーブ","フットワーク","クリア","スマッシュ","ロブ","ヘアピン","プッシュ","ドロップ","ゲーム練習"]},{t:"➕ ほか",m:["その他"]}];
+var MENU_GROUPS=[{t:"💪 からだづくり",m:["ランニング","体幹","サーキット","手押車","ゴムチューブ"]},{t:"🏸 ラケットを使う",m:["サーブ","フットワーク","クリアー","スマッシュ","ロブ","ヘアピン","プッシュ","ドロップ","ゲーム練習"]},{t:"➕ ほか",m:["その他"]}];
 var MENUS=[].concat.apply([],MENU_GROUPS.map(function(g){return g.m}));
 var FOCUS=["サーブミスを減らす","サーブを奥まで打つ","1歩目を速くする","フットワーク","打ったあとに戻る","体全体を使って打つ","相手の空いている場所を見る","その他"];
 var GOAL_EX=["サーブを安定して奥まで入れる","1歩目を速くする","打ったあとに戻る","体全体を使って打つ"];
 // データ構造: practices[], goals{"YYYY-MM":{title,weeks[5]}}, tournament{name,date,goal,focus[],focusOther}
 var db=load();var tab="practice";var editG=false;var mamaView="an",mamaMonth=null;var editPid=null;var bkOpen=false;var draft={menus:[],other:"",good:"",bad:"",coach:"",nexts:[],nextIn:"",review:null};var openId=null;var selWeek=null;
-function normalize(d){d.goals=d.goals||{};Object.keys(d.goals).forEach(function(k){var g=d.goals[k];if(!Array.isArray(g))d.goals[k]=g&&g.title?[{id:Number(k.replace('-','')),title:g.title,weeks:g.weeks||[0,0,0,0,0]}]:[]});if(!Array.isArray(d.tournaments)){d.tournaments=[];var t=d.tournament;if(t&&(t.name||t.date||t.goal||(t.focus&&t.focus.length)))d.tournaments.push({id:Date.now(),name:t.name||"",date:t.date||"",goal:t.goal||"",events:[],focus:t.focus||[],focusOther:t.focusOther||""})}delete d.tournament;d.tournaments.forEach(function(t){t.events=t.events||[];t.focus=t.focus||[]});return d}
+function normalize(d){(d.practices||[]).forEach(function(r){r.menus=(r.menus||[]).map(function(m){return m==="クリア"?"クリアー":m})});d.goals=d.goals||{};Object.keys(d.goals).forEach(function(k){var g=d.goals[k];if(!Array.isArray(g))d.goals[k]=g&&g.title?[{id:Number(k.replace('-','')),title:g.title,weeks:g.weeks||[0,0,0,0,0]}]:[]});if(!Array.isArray(d.tournaments)){d.tournaments=[];var t=d.tournament;if(t&&(t.name||t.date||t.goal||(t.focus&&t.focus.length)))d.tournaments.push({id:Date.now(),name:t.name||"",date:t.date||"",goal:t.goal||"",events:[],focus:t.focus||[],focusOther:t.focusOther||""})}delete d.tournament;d.tournaments.forEach(function(t){t.events=t.events||[];t.focus=t.focus||[];t.matches=t.matches||[]});return d}
 function load(){try{var s=localStorage.getItem(KEY);if(s){var d=JSON.parse(s);if(d&&d.practices)return normalize(d)}}catch(e){}
 return{practices:[],goals:{},tournaments:[]}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}}
@@ -241,21 +241,21 @@ function setP(v){(db.goals[gMonth]||[]).forEach(function(g){if(g.id===selGoal)g.
 
 /* 大会 */
 function daysLeft(s){if(!s)return null;var a=s.split("-"),t=new Date(+a[0],+a[1]-1,+a[2]),n=new Date();n=new Date(n.getFullYear(),n.getMonth(),n.getDate());return Math.round((t-n)/86400000)}
-var EVT=["シングルス","ダブルス"],EVI={"シングルス":"👤","ダブルス":"👥"};var tdraft=null,tNew=false;
+var EVT=["シングルス","ダブルス"],EVI={"シングルス":"👤","ダブルス":"👥"};var tdraft=null,tNew=false,mOpen=null,mTid=null,mdraft=null,mNew=false;
 function fmtD(s){var a=s.split("-");return a[0]+"/"+(+a[1])+"/"+(+a[2])}
 function vMatch(){var h='<h2>次の大会 🏆</h2>';
 var list=db.tournaments.slice().sort(function(a,b){var x=a.date||"9999",y=b.date||"9999";return x<y?-1:x>y?1:0});
 var up=null;list.forEach(function(t){if(!up&&t.date&&daysLeft(t.date)>=0)up=t});var d=up?daysLeft(up.date):null;
 h+='<div class="big">'+(up?(d===0?'<div>今日が大会！ 🏸</div><small>'+esc(up.name||"大会")+'</small>':'<small>'+esc(up.name||"大会")+'まで</small><div>あと '+d+' 日</div>'):'<small>大会を追加しよう</small>')+'</div>';
 if(!tdraft)h+='<button class="btn" style="margin-top:0;margin-bottom:12px" onclick="newT()">＋ 大会を追加</button>';else if(tNew)h+=formT();
-list.forEach(function(t){if(tdraft&&!tNew&&tdraft.id===t.id){h+=formT();return}
+list.forEach(function(t){if(tdraft&&!tNew&&tdraft.id===t.id){h+=formT()+matchBlock(t);return}
 var dl=t.date?daysLeft(t.date):null,past=dl!==null&&dl<0;
 h+='<button class="rec'+(past?" past":"")+'" onclick="editT('+t.id+')"><b>'+esc(t.name||"（名前なし）")+'</b>　'+(t.date?fmtD(t.date):"日にち未定")+(dl===null?"":past?"　終了":dl===0?"　今日！":"　あと"+dl+"日");
 t.events.forEach(function(e){h+='<small>'+EVI[e.type]+' '+e.type+'：'+esc(e.goal||"目標はこれから")+'</small>'});
 if(t.goal)h+='<small>🚩 '+esc(t.goal)+'</small>';
 var fs=t.focus.map(function(f){return f=="その他"&&t.focusOther?"その他("+t.focusOther+")":f});
 if(fs.length)h+='<small>🔥 '+esc(fs.join("・"))+'</small>';
-h+='</button>'});
+h+='</button>'+matchBlock(t)});
 if(!list.length&&!tdraft)h+='<div class="card sub">まだ大会が登録されていません。</div>';
 h+='<div class="card"><h3 style="margin-top:0">バックアップ 💾</h3><div class="sub" style="margin-bottom:10px">記録をファイルに保存したり、別のスマホやURLに移したりできます。</div><div class="row"><button class="btn sm" onclick="exportData()">📤 書き出し</button><label class="btn sm ghost" style="display:inline-flex;align-items:center;justify-content:center">📥 読み込み<input type="file" accept=".json,application/json,text/plain" class="hide" onchange="importData(this)"></label></div><div class="row" style="margin-top:8px"><button class="btn sm ghost" onclick="exportText()">📋 テキストでコピー</button><button class="btn sm ghost" onclick="showPaste()">📝 貼り付けて読み込み</button></div>'+(bkOpen?'<textarea id="bk" style="margin-top:10px;font-size:12px;min-height:110px" placeholder="ここにバックアップのテキストを貼り付け"></textarea><button class="btn sm" style="margin-top:8px" onclick="importText()">このテキストから読み込む</button>':'')+'</div>';return h}
 function formT(){var t=tdraft;var h='<div class="card"><h3 style="margin-top:0">🏆 大会名</h3><input type="text" id="tn" value="'+esc(t.name)+'" placeholder="大会名"><h3>📅 大会日</h3><input type="date" id="td" value="'+esc(t.date)+'"><h3>🎽 出る種目</h3><div class="chips">';
@@ -267,13 +267,35 @@ FOCUS.forEach(function(f,i){h+='<button class="chip'+(t.focus.indexOf(f)>=0?" on
 h+='</div>';if(t.focus.indexOf("その他")>=0)h+='<input type="text" id="to" style="margin-top:8px" value="'+esc(t.focusOther)+'" placeholder="その他の課題">';
 h+='<button class="btn" onclick="saveT()">この大会を保存</button><div class="row" style="margin-top:8px"><button class="btn sm ghost" onclick="cancelT()">やめる</button>'+(tNew?'':'<button class="btn sm ghost warn" onclick="delT()">削除</button>')+'</div></div>';return h}
 function readT(){var t=tdraft;if(!t||!$("tn"))return;t.name=$("tn").value.trim();t.date=$("td").value;t.goal=$("tg").value.trim();t.events.forEach(function(e,i){var el=$("ev"+i);if(el)e.goal=el.value.trim()});if($("to"))t.focusOther=$("to").value.trim()}
+function scText(m){return(m.g||[]).map(function(g,i){return(g&&g[0]!==""&&g[1]!=="")?(i+1)+"G "+g[0]+"-"+g[1]:null}).filter(Boolean).join("　")||"得点はこれから"}
+function matchRes(m){var w=0,l=0;(m.g||[]).forEach(function(g){if(g&&g[0]!==""&&g[1]!==""){if(+g[0]>+g[1])w++;else if(+g[0]<+g[1])l++}});return w>=2?'<span class="badge">勝ち 🎉</span>':l>=2?'<span class="badge rep">負け</span>':''}
+function matchBlock(t){var ms=t.matches||[],open=mOpen===t.id;
+var h='<button class="btn sm ghost" style="width:100%;margin:-4px 0 12px" onclick="toggleM('+t.id+')">🏸 試合の記録（'+ms.length+'件）'+(open?' ▲':' ▼')+'</button>';
+if(open){h+='<div class="card" style="margin-top:-6px">';
+ms.forEach(function(m){if(mdraft&&!mNew&&mTid===t.id&&mdraft.id===m.id)h+=formM();else h+='<button class="rec" onclick="editM('+t.id+','+m.id+')"><b>🆚 '+esc(m.opp||"（相手未入力）")+'</b> '+matchRes(m)+'<small>'+scText(m)+'</small>'+(m.coach?'<small>🗣 '+esc(m.coach)+'</small>':'')+(m.mama?'<small>👩 '+esc(m.mama)+'</small>':'')+'</button>'});
+if(mdraft&&mNew&&mTid===t.id)h+=formM();else if(!mdraft)h+='<button class="btn sm" style="width:100%" onclick="newM('+t.id+')">＋ 試合を追加</button>';
+if(!ms.length&&!mdraft)h+='<div class="sub" style="margin-top:8px">1試合ごとに、相手・得点・コメントを残せます。</div>';
+h+='</div>'}return h}
+function formM(){var m=mdraft,h='<div style="border:2px solid var(--main);border-radius:16px;padding:12px;margin-bottom:10px"><h3 style="margin-top:0">🆚 対戦相手</h3><input type="text" id="m_opp" value="'+esc(m.opp)+'" placeholder="例：◯◯クラブ △△さん"><h3>🔢 得点</h3>';
+for(var i=0;i<3;i++){var g=m.g[i]||["",""];h+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="width:72px;flex:none;font-size:14px">'+(i+1)+'ゲーム目</span><input type="number" inputmode="numeric" min="0" max="99" id="m_g'+i+'a" value="'+esc(g[0])+'" placeholder="瑛" style="text-align:center;padding:10px"><span>−</span><input type="number" inputmode="numeric" min="0" max="99" id="m_g'+i+'b" value="'+esc(g[1])+'" placeholder="相手" style="text-align:center;padding:10px"></div>'}
+return h+'<h3>🗣 コーチからのコメント</h3><textarea id="m_coach" placeholder="コーチに言われたこと">'+esc(m.coach)+'</textarea><h3>👩 ママのコメント</h3><textarea id="m_mama" placeholder="ママから見て気づいたこと">'+esc(m.mama)+'</textarea><button class="btn" onclick="saveM()">この試合を保存</button><div class="row" style="margin-top:8px"><button class="btn sm ghost" onclick="cancelM()">やめる</button>'+(mNew?'':'<button class="btn sm ghost warn" onclick="delM()">削除</button>')+'</div></div>'}
+function toggleM(id){mOpen=mOpen===id?null:id;mdraft=null;render()}
+function newM(tid){mTid=tid;mdraft={id:Date.now(),opp:"",g:[["",""],["",""],["",""]],coach:"",mama:""};mNew=true;render()}
+function editM(tid,mid){var t=db.tournaments.filter(function(x){return x.id===tid})[0],m=t&&(t.matches||[]).filter(function(x){return x.id===mid})[0];if(!m)return;mTid=tid;mdraft=JSON.parse(JSON.stringify(m));while(mdraft.g.length<3)mdraft.g.push(["",""]);mNew=false;render()}
+function cancelM(){mdraft=null;render()}
+function saveM(){var m=mdraft;m.opp=$("m_opp").value.trim();m.g=[0,1,2].map(function(i){return[$("m_g"+i+"a").value.trim(),$("m_g"+i+"b").value.trim()]});m.coach=$("m_coach").value.trim();m.mama=$("m_mama").value.trim();
+if(!(m.opp||m.coach||m.mama||m.g.some(function(g){return g[0]!==""||g[1]!==""}))){toast("対戦相手か得点を入れてね");return}
+var t=db.tournaments.filter(function(x){return x.id===mTid})[0];if(!t)return;t.matches=t.matches||[];
+if(mNew)t.matches.push(m);else t.matches=t.matches.map(function(x){return x.id===m.id?m:x});
+save();mdraft=null;toast("試合を保存しました 🏸");render()}
+function delM(){if(!confirm("この試合の記録を削除しますか？"))return;var t=db.tournaments.filter(function(x){return x.id===mTid})[0];if(t)t.matches=(t.matches||[]).filter(function(x){return x.id!==mdraft.id});save();mdraft=null;render()}
 function newT(){tdraft={id:Date.now(),name:"",date:"",goal:"",events:[],focus:[],focusOther:""};tNew=true;render()}
 function editT(id){var t=db.tournaments.filter(function(x){return x.id===id})[0];if(!t)return;tdraft=JSON.parse(JSON.stringify(t));tNew=false;render()}
 function cancelT(){tdraft=null;render()}
 function te(i){readT();var ty=EVT[i],k=-1;tdraft.events.forEach(function(e,j){if(e.type==ty)k=j});if(k>=0)tdraft.events.splice(k,1);else{tdraft.events.push({type:ty,goal:""});tdraft.events.sort(function(a,b){return EVT.indexOf(a.type)-EVT.indexOf(b.type)})}render()}
 function tf(i){readT();var f=FOCUS[i],k=tdraft.focus.indexOf(f);if(k>=0)tdraft.focus.splice(k,1);else tdraft.focus.push(f);render()}
 function saveT(){readT();if(!tdraft.name&&!tdraft.date){toast("大会名か大会日を入れてね");return}
-if(tNew)db.tournaments.push(tdraft);else db.tournaments=db.tournaments.map(function(x){return x.id===tdraft.id?tdraft:x});
+if(tNew)db.tournaments.push(tdraft);else db.tournaments=db.tournaments.map(function(x){return x.id===tdraft.id?Object.assign(tdraft,{matches:x.matches||[]}):x});
 save();tdraft=null;toast("大会を保存しました 🏆");render()}
 function delT(){if(!confirm("この大会を削除しますか？"))return;var id=tdraft.id;db.tournaments=db.tournaments.filter(function(x){return x.id!==id});save();tdraft=null;render()}
 function exportData(){try{var b=new Blob([JSON.stringify(db)],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="hana-bad-backup-"+ymd(new Date())+".json";document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000);toast("書き出しました 📤")}catch(e){toast("書き出せませんでした")}}
